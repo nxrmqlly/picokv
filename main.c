@@ -8,6 +8,8 @@
  * PicoKV File format
  * ------------------
  *
+ * All multi byte numbers are little endian
+ *
  * Header (12b):
  * - magic   : 4B ("p1c0")
  * - version : 2B
@@ -43,6 +45,13 @@ typedef struct {
   uint32_t v_sz;
 } RecHeader;
 
+void write_le(uint64_t x, size_t n, FILE *fp) {
+  for (size_t i = 0; i < n; i++) {
+    uint8_t byte = (uint8_t)(x >> (i * 8));
+    fwrite(&byte, 1, 1, fp);
+  }
+}
+
 uint32_t crc32_start(void) { return 0xFFFFFFFF; }
 
 uint32_t crc32_update(uint32_t crc, const uint8_t *data, size_t length) {
@@ -62,6 +71,7 @@ uint32_t crc32_update(uint32_t crc, const uint8_t *data, size_t length) {
   }
   return crc;
 }
+
 uint32_t crc32_finish(uint32_t crc) { return crc ^= 0xFFFFFFFF; }
 
 void picokv_write_header(FILE *fp) {
@@ -70,16 +80,16 @@ void picokv_write_header(FILE *fp) {
   uint16_t version = PICOKV_VERSION; // 2B
   uint8_t reserved[6] = {0};         // 6B
 
-  fwrite(&magic, sizeof(magic), 1, fp);
-  fwrite(&version, sizeof(version), 1, fp);
+  write_le(magic, 4, fp);
+  write_le(version, 2, fp);
   fwrite(&reserved, sizeof(reserved), 1, fp);
 }
 
 void picokv_write_rec_header(RecHeader h, FILE *fp) {
   fwrite(&h.op, sizeof(h.op), 1, fp);
   fwrite(&h.crc, sizeof(h.crc), 1, fp);
-  fwrite(&h.k_sz, sizeof(h.k_sz), 1, fp);
-  fwrite(&h.v_sz, sizeof(h.v_sz), 1, fp);
+  write_le(h.k_sz, 4, fp);
+  write_le(h.v_sz, 4, fp);
 }
 
 void picokv_write_record(uint8_t op, char *k, char *v, FILE *fp) {
