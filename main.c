@@ -18,8 +18,8 @@
  * Record Header (16B):
  * - op     : 1B
  * - padding: 3B (reserved, 00)
- * - crc    : 4B
- * - k_sz   : 4B (CRC32(k || v))
+ * - crc    : 4B (CRC32(k || v))
+ * - k_sz   : 4B
  * - v_sz   : 4B (0 IF op = DEL)
  * Record (<k_sz + v_sz>B)
  * - k      : <k_sz>B
@@ -34,6 +34,18 @@ static const char PICOKV_MAGIC[4] = "p1c0";
 
 #define PICOKV_OP_SET 0x01
 #define PICOKV_OP_DEL 0x02
+
+#define PICOKV_ERR_SIZE -1
+#define PICOKV_ERR_NOMEM -2
+#define PICOKV_ERR_MAGIC -3
+#define PICOKV_ERR_BADVER -4
+#define PICOKV_ERR_BADOP -5
+#define PICOKV_ERR_BADCRC -6
+
+// 4 KiB
+#define MAX_K_SZ (4 * 1024)
+// 1 MiB
+#define MAX_V_SZ (1 * 1024 * 1024)
 
 typedef struct {
   char magic[4];
@@ -52,19 +64,53 @@ typedef struct {
   uint8_t *v;
 } Record;
 
-void write_le(uint64_t x, size_t n, FILE *fp) {
-  for (size_t i = 0; i < n; i++) {
-    uint8_t byte = (uint8_t)(x >> (i * 8));
-    fwrite(&byte, 1, 1, fp);
+static void safe_fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
+  if (size == 0 || nmemb == 0)
+    return;
+
+  size_t ir = fread(ptr, size, nmemb, stream);
+
+  if (ir != nmemb) {
+    if (feof(stream)) {
+      fprintf(stderr, "Fatal: Unexpected EOF\n");
+    } else if (ferror(stream)) {
+      perror("Fatal: Failed to read from file");
+    } else {
+      fprintf(stderr, "Fatal: Partial read\n");
+    }
+    exit(1);
   }
 }
 
-uint64_t read_le(size_t n, FILE *fp) {
+static void safe_fwrite(const void *ptr, size_t size, size_t nmemb,
+                        FILE *stream) {
+  if (size == 0 || nmemb == 0)
+    return;
+
+  size_t iw = fwrite(ptr, size, nmemb, stream);
+  if (iw != nmemb) {
+    perror("Fatal: Failed to write to file");
+    exit(1);
+  }
+}
+
+// Writes strictly in little endian. Crashes on IO error
+static void write_le(uint64_t x, size_t n, FILE *fp) {
+  uint8_t buf[8];
+  for (size_t i = 0; i < n; i++) {
+    buf[i] = (uint8_t)(x >> (i * 8));
+  }
+  safe_fwrite(buf, 1, n, fp);
+}
+
+// Reads little endian. Crashes on IO error
+static uint64_t read_le(size_t n, FILE *fp) {
+  uint8_t buf[8] = {0};
+  safe_fread(buf, 1, n, fp);
+
   uint64_t x = 0;
   for (size_t i = 0; i < n; i++) {
-    uint8_t byte;
-    fread(&byte, 1, 1, fp);
-    x |= (uint64_t)byte << (i * 8);
+    x |= (uint64_t)buf[i] << (i * 8);
   }
   return x;
 }
@@ -89,47 +135,35 @@ uint32_t crc32_update(uint32_t crc, const uint8_t *data, size_t length) {
   return crc;
 }
 
-uint32_t crc32_finish(uint32_t crc) { return crc ^= 0xFFFFFFFF; }
+uint32_t crc32_finish(uint32_t crc) { return crc ^ 0xFFFFFFFF; }
 
 void picokv_write_header(FILE *fp) {
   // Write 16B of header
   uint8_t reserved[10] = {0}; // 10B
-  fwrite(PICOKV_MAGIC, 4, 1, fp);
+  safe_fwrite(PICOKV_MAGIC, 4, 1, fp);
   write_le(PICOKV_VERSION, 2, fp);
-  fwrite(reserved, sizeof reserved, 1, fp);
+  safe_fwrite(reserved, sizeof reserved, 1, fp);
 }
 
-Header picokv_read_header(FILE *fp) {
-  Header h;
-  fread(h.magic, sizeof h.magic, 1, fp);
-  h.version = read_le(sizeof h.version, fp);
-  fread(h.reserved, sizeof h.reserved, 1, fp);
-
-  return h;
-}
-
-void _picokv_write_rec_header(const Record *r, FILE *fp) {
+static void picokv_write_rec_header(const Record *r, FILE *fp) {
   const char padding[3] = {0};
-  fwrite(&r->op, sizeof r->op, 1, fp);
-  fwrite(padding, sizeof padding, 1, fp);
+  safe_fwrite(&r->op, sizeof r->op, 1, fp);
+  safe_fwrite(padding, sizeof padding, 1, fp);
   write_le(r->crc, sizeof r->crc, fp);
   write_le(r->k_sz, sizeof r->k_sz, fp);
   write_le(r->v_sz, sizeof r->v_sz, fp);
 }
 
-Record _picokv_read_rec_header(FILE *fp) {
-  Record r;
-  r.op = read_le(1, fp);
-  fread(r.padding, 3, 1, fp);
-  r.crc = read_le(sizeof r.crc, fp);
-  r.k_sz = read_le(sizeof r.k_sz, fp);
-  r.v_sz = read_le(sizeof r.v_sz, fp);
-  return r;
-}
+int picokv_write_record(uint8_t op, char *k, char *v, FILE *fp) {
+  if (op != PICOKV_OP_SET && op != PICOKV_OP_DEL) {
+    return PICOKV_ERR_BADOP;
+  }
 
-void picokv_write_record(uint8_t op, char *k, char *v, FILE *fp) {
   uint32_t k_sz = strlen(k);
   uint32_t v_sz = op == PICOKV_OP_DEL ? 0 : strlen(v);
+  if (k_sz > MAX_K_SZ || v_sz > MAX_V_SZ) {
+    return PICOKV_ERR_SIZE;
+  }
   uint32_t crc = crc32_start();
   crc = crc32_update(crc, (const uint8_t *)k, k_sz);
   crc = crc32_update(crc, (const uint8_t *)v, v_sz);
@@ -142,22 +176,26 @@ void picokv_write_record(uint8_t op, char *k, char *v, FILE *fp) {
       .v_sz = v_sz,
   };
 
-  _picokv_write_rec_header(&h, fp);
-  fwrite((const uint8_t *)k, k_sz, 1, fp);
-  fwrite((const uint8_t *)v, v_sz, 1, fp);
+  picokv_write_rec_header(&h, fp);
+  safe_fwrite((const uint8_t *)k, k_sz, 1, fp);
+  safe_fwrite((const uint8_t *)v, v_sz, 1, fp);
+
+  return 0;
 }
 
-Record picokv_read_record(FILE *fp) {
-  Record r = _picokv_read_rec_header(fp);
+int picokv_read_header(Header *out, FILE *fp) {
+  safe_fread(out->magic, sizeof out->magic, 1, fp);
+  out->version = read_le(sizeof out->version, fp);
+  safe_fread(out->reserved, sizeof out->reserved, 1, fp);
 
-  r.k = malloc(r.k_sz + 1); // +1 for \0
-  r.v = malloc(r.v_sz + 1);
-  fread(r.k, r.k_sz, 1, fp);
-  fread(r.v, r.v_sz, 1, fp);
-  r.k[r.k_sz] = '\0'; // convert to c-string
-  r.v[r.v_sz] = '\0';
+  if (memcmp(out->magic, PICOKV_MAGIC, 4) != 0) {
+    return PICOKV_ERR_MAGIC;
+  }
+  if (out->version != PICOKV_VERSION) {
+    return PICOKV_ERR_BADVER;
+  }
 
-  return r;
+  return 0;
 }
 
 void picokv_free_record(Record *r) {
@@ -165,12 +203,66 @@ void picokv_free_record(Record *r) {
   free(r->v);
 }
 
+static int picokv_read_rec_header(Record *out, FILE *fp) {
+  out->op = read_le(1, fp);
+  safe_fread(out->padding, 3, 1, fp);
+  out->crc = read_le(sizeof out->crc, fp);
+  out->k_sz = read_le(sizeof out->k_sz, fp);
+  out->v_sz = read_le(sizeof out->v_sz, fp);
+
+  if (out->op != PICOKV_OP_SET && out->op != PICOKV_OP_DEL) {
+    return PICOKV_ERR_BADOP;
+  }
+  if (out->k_sz > MAX_K_SZ || out->v_sz > MAX_V_SZ) {
+    return PICOKV_ERR_SIZE;
+  }
+  if (out->op == PICOKV_OP_DEL && out->v_sz != 0) {
+    return PICOKV_ERR_SIZE;
+  }
+
+  return 0;
+}
+
+int picokv_read_record(Record *out, FILE *fp) {
+  int rch = picokv_read_rec_header(out, fp);
+  if (rch != 0)
+    return rch;
+
+  out->k = malloc(out->k_sz + 1); // +1 for \0
+  out->v = malloc(out->v_sz + 1);
+
+  if (out->k == NULL || out->v == NULL) {
+    free(out->k);
+    free(out->v);
+    out->k = NULL;
+    out->v = NULL;
+    return PICOKV_ERR_NOMEM;
+  }
+
+  safe_fread(out->k, out->k_sz, 1, fp);
+  safe_fread(out->v, out->v_sz, 1, fp);
+  out->k[out->k_sz] = '\0'; // convert to c-string
+  out->v[out->v_sz] = '\0';
+
+  uint32_t crc = crc32_start();
+  crc = crc32_update(crc, (const uint8_t *)out->k, out->k_sz);
+  crc = crc32_update(crc, (const uint8_t *)out->v, out->v_sz);
+  crc = crc32_finish(crc);
+
+  if (out->crc != crc) {
+    picokv_free_record(out);
+    return PICOKV_ERR_BADCRC;
+  }
+
+  return 0;
+}
+
 int main() {
   FILE *file_ptr;
   file_ptr = fopen("test.picokv", "wb");
 
   if (file_ptr == NULL) {
-    printf("I/O error while opening file.\n");
+    perror("Failed to open test.picokv");
     exit(1);
   }
 
