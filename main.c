@@ -43,7 +43,7 @@ typedef struct {
   uint32_t v_sz;
 } RecHeader;
 
-uint32_t crc32_start() { return 0xFFFFFFFF; }
+uint32_t crc32_start(void) { return 0xFFFFFFFF; }
 
 uint32_t crc32_update(uint32_t crc, const uint8_t *data, size_t length) {
   for (size_t i = 0; i < length; ++i) {
@@ -62,7 +62,7 @@ uint32_t crc32_update(uint32_t crc, const uint8_t *data, size_t length) {
   }
   return crc;
 }
-uint32_t crc32_start(uint32_t crc) { return crc ^= 0xFFFFFFFF; }
+uint32_t crc32_finish(uint32_t crc) { return crc ^= 0xFFFFFFFF; }
 
 void picokv_write_header(FILE *fp) {
   // Write 12B of header
@@ -83,13 +83,23 @@ void picokv_write_rec_header(RecHeader h, FILE *fp) {
 }
 
 void picokv_write_record(uint8_t op, char *k, char *v, FILE *fp) {
+  uint32_t k_sz = strlen(k);
+  uint32_t v_sz = strlen(v);
+  uint32_t crc = crc32_start();
+  crc = crc32_update(crc, (const uint8_t *)k, k_sz);
+  crc = crc32_update(crc, (const uint8_t *)v, v_sz);
+  crc = crc32_finish(crc);
+
   RecHeader h = {
       .op = op,
-      .k_sz = strlen(k),
-      .v_sz = strlen(v),
+      .crc = crc,
+      .k_sz = k_sz,
+      .v_sz = v_sz,
   };
 
   picokv_write_rec_header(h, fp);
+  fwrite((const uint8_t *)k, strlen(k), 1, fp);
+  fwrite((const uint8_t *)v, strlen(v), 1, fp);
 }
 
 int main() {
@@ -104,11 +114,10 @@ int main() {
   picokv_write_header(file_ptr);
 
   fclose(file_ptr);
-  return 0;
 
   const uint8_t test[] = "123456789";
-  uint32 crc = crc32_start();
-  uint32_t res = crc32_update(crc, test, sizeof(test) - 1);
+  uint32_t res =
+      crc32_finish(crc32_update(crc32_start(), test, sizeof(test) - 1));
 
   printf("dat: %s\n", test);
   printf("crc: %08X\n", res);
