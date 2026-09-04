@@ -2,7 +2,7 @@
 // Copyright (C) 2026-present Ritam Das
 
 #include "inmemmap.h"
-#include "pkverr.h"
+#include "../include/pkverr.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,7 +28,7 @@ uint64_t hash_fnv_1a(const char *c) {
   return h;
 }
 
-HashMap *create_map() {
+HashMap *create_map(void) {
   HashMap *map = malloc(sizeof *map);
   if (!map)
     return NULL;

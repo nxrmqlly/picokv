@@ -3,7 +3,7 @@
 
 #include "format.h"
 #include "crc.h"
-#include "pkverr.h"
+#include "../include/pkverr.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

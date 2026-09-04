@@ -11,7 +11,7 @@ typedef struct HashMap HashMap;
 
 uint64_t hash_fnv_1a(const char *c);
 
-HashMap *create_map();
+HashMap *create_map(void);
 int map_put(HashMap *map, const char *key, const char *value);
 const char *map_get(HashMap *map, const char *key);
 int map_del(HashMap *map, const char *key);

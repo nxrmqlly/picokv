@@ -7,6 +7,7 @@
 
 typedef struct PicoKV PicoKV;
 
+PicoKV *picokv_new(void);
 int picokv_open(PicoKV *pkv, const char *path);
 void picokv_close(PicoKV *pkv);
 

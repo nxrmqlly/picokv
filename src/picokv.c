@@ -2,9 +2,9 @@
 // Copyright (C) 2026-present Ritam Das
 
 #include "../include/picokv.h"
+#include "../include/pkverr.h"
 #include "./format.h"
 #include "inmemmap.h"
-#include "pkverr.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +16,21 @@ struct PicoKV {
   HashMap *map;
 };
 
+PicoKV *picokv_new(void) {
+  PicoKV *pkv = malloc(sizeof *pkv);
+  if (pkv == NULL)
+    return NULL;
+
+  pkv->fp = NULL;
+  pkv->map = NULL;
+
+  return pkv;
+}
+
 int picokv_open(PicoKV *pkv, const char *path) {
+  pkv->fp = NULL;  // just in case: set these to null prematurely so that close
+  pkv->map = NULL; // on early err doesn't read garbage
+
   pkv->fp = fopen(path, "a+b");
   if (pkv->fp == NULL) {
     perror("Failed to open file");
@@ -64,8 +78,10 @@ int picokv_open(PicoKV *pkv, const char *path) {
 
     if (rc == PICOKV_ERR_EOF)
       break;
-    if (rc != 0)
+    if (rc != 0) {
+      picokv_close(pkv);
       return rc;
+    }
 
     int mr = 0;
     switch (r.op) {
@@ -110,15 +126,14 @@ void picokv_close(PicoKV *pkv) {
 }
 
 int picokv_set(PicoKV *pkv, const char *key, const char *val) {
+  if (fseek(pkv->fp, 0, SEEK_END) != 0)
+    return PICOKV_ERR_IO;
+
   int rc = picokv_write_record(PICOKV_OP_SET, key, val, pkv->fp);
   if (rc != 0)
     return rc;
 
   return map_put(pkv->map, key, val);
-}
-
-static const char *picokv_find(PicoKV *pkv, const char *key) {
-  return map_get(pkv->map, key);
 }
 
 int picokv_get_size(PicoKV *pkv, size_t *out_sz, const char *key) {
