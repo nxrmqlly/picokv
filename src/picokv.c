@@ -133,7 +133,11 @@ int picokv_set(PicoKV *pkv, const char *key, const char *val) {
   if (rc != 0)
     return rc;
 
-  return map_put(pkv->map, key, val);
+  rc = map_put(pkv->map, key, val);
+  if (fflush(pkv->fp) != 0)
+    return PICOKV_ERR_IO;
+
+  return rc;
 }
 
 int picokv_get_size(PicoKV *pkv, size_t *out_sz, const char *key) {

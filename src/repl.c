@@ -113,7 +113,7 @@ int repl(PicoKV *pkv) {
         break;
       }
 
-      rc = picokv_get(pkv, argv[1], out_str, sz + 1);
+      rc = picokv_get(pkv, out_str, argv[1], sz + 1);
       if (rc != 0) {
         free(out_str);
         printf("Error: %s\n", picokv_strerror(rc));
