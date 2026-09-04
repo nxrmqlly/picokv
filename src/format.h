@@ -9,15 +9,6 @@ static const char PICOKV_MAGIC[4] = {'p', '1', 'c', 'o'};
 #define PICOKV_OP_SET 0x01
 #define PICOKV_OP_DEL 0x02
 
-#define PICOKV_ERR_SIZE (-1)
-#define PICOKV_ERR_NOMEM (-2)
-#define PICOKV_ERR_MAGIC (-3)
-#define PICOKV_ERR_BADVER (-4)
-#define PICOKV_ERR_BADOP (-5)
-#define PICOKV_ERR_BADCRC (-6)
-#define PICOKV_ERR_IO (-7)
-#define PICOKV_EOF (-8)
-
 // 4 KiB
 #define MAX_K_SZ (4 * 1024)
 // 1 MiB

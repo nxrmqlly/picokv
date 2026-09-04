@@ -1,0 +1,10 @@
+
+#define PICOKV_ERR_SIZE     (-1)
+#define PICOKV_ERR_NOMEM    (-2)
+#define PICOKV_ERR_MAGIC    (-3)
+#define PICOKV_ERR_BADVER   (-4)
+#define PICOKV_ERR_BADOP    (-5)
+#define PICOKV_ERR_BADCRC   (-6)
+#define PICOKV_ERR_IO       (-7)
+#define PICOKV_ERR_EOF      (-8)
+#define PICOKV_ERR_NOTFOUND (-9)

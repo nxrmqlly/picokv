@@ -1,6 +1,7 @@
 #include "../include/picokv.h"
 #include "./format.h"
 #include "inmemmap.h"
+#include "pkverr.h"
 #include <stdio.h>
 
 struct PicoKV {
@@ -44,7 +45,7 @@ int picokv_open(PicoKV *pkv, const char *path) {
     Record r;
     int rc = picokv_read_record(&r, pkv->fp);
 
-    if (rc == PICOKV_EOF)
+    if (rc == PICOKV_ERR_EOF)
       break;
 
     if (rc != 0)

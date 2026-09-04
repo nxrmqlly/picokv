@@ -1,4 +1,5 @@
 #include "format.h"
+#include "pkverr.h"
 #include "crc.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -173,7 +174,7 @@ int picokv_read_record(Record *out, FILE *fp) {
 
   if (first == EOF) {
     if (feof(fp))
-      return PICOKV_EOF;
+      return PICOKV_ERR_EOF;
 
     return PICOKV_ERR_IO;
   }
