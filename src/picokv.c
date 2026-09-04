@@ -1,5 +1,6 @@
 #include "../include/picokv.h"
 #include "./format.h"
+#include "inmemmap.h"
 #include <stdio.h>
 
 struct PicoKV {

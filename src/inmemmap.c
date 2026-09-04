@@ -29,7 +29,7 @@ HashMap *create_map() {
 }
 
 void map_put(HashMap *map, const char *key, const char *value) {
-  uint64_t index = hash_fnv_1a(key);
+  uint64_t index = hash_fnv_1a(key) % CAPACITY;
   Node *head = map->buckets[index];
 
   // check if key already exists
@@ -51,7 +51,7 @@ void map_put(HashMap *map, const char *key, const char *value) {
 }
 
 const char *map_get(HashMap *map, const char *key) {
-  uint64_t index = hash_fnv_1a(key);
+  uint64_t index = hash_fnv_1a(key) % CAPACITY;
   Node *head = map->buckets[index];
 
   while (head != NULL) {
