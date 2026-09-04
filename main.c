@@ -1,10 +1,11 @@
+#include "src/repl.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-int main() {
+int main(void) {
   FILE *file_ptr;
   file_ptr = fopen("test.picokv", "wb");
 
@@ -15,5 +16,6 @@ int main() {
 
   fclose(file_ptr);
 
-  return 0;
+  int i = repl();
+  return i;
 }

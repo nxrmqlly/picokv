@@ -168,6 +168,16 @@ static int picokv_read_rec_header(Record *out, FILE *fp) {
 }
 
 int picokv_read_record(Record *out, FILE *fp) {
+
+  int first = fgetc(fp);
+
+  if (first == EOF) {
+    if (feof(fp))
+      return PICOKV_EOF;
+
+    return PICOKV_ERR_IO;
+  }
+
   int rch = picokv_read_rec_header(out, fp);
   if (rch != 0)
     return rch;
