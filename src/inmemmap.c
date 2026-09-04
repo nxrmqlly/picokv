@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026-present Ritam Das
+
 #include "inmemmap.h"
 #include "pkverr.h"
 #include <stdint.h>
