@@ -1,7 +1,7 @@
 CC = clang
 CFLAGS = -Wall -Wextra -Wpedantic -Iinclude -Isrc
 
-SRC = main.c src/crc.c src/format.c src/repl.c
+SRC = main.c src/crc.c src/format.c src/repl.c src/picokv.c src/inmemmap.c src/pkverr.c
 TARGET = dist/picokv
 OBJ = $(SRC:.c=.o)
 
