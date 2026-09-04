@@ -26,14 +26,14 @@ typedef struct {
   uint32_t crc;
   uint32_t k_sz;
   uint32_t v_sz;
-  uint8_t *k;
-  uint8_t *v;
+  char *k;
+  char *v;
 } Record;
 
 int picokv_read_header(Header *out, FILE *fp);
 void picokv_write_header(FILE *fp);
 
-int picokv_write_record(uint8_t op, char *k, char *v, FILE *fp);
+int picokv_write_record(uint8_t op, const char *k, const char *v, FILE *fp);
 int picokv_read_record(Record *out, FILE *fp);
 
 void picokv_free_record(Record *r);

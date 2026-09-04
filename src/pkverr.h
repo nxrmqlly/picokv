@@ -8,3 +8,4 @@
 #define PICOKV_ERR_IO       (-7)
 #define PICOKV_ERR_EOF      (-8)
 #define PICOKV_ERR_NOTFOUND (-9)
+#define PICOKV_INVALID      (-10)

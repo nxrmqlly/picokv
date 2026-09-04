@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define INDEXWRAP(key) hash_fnv_1a(key) % CAPACITY
+#define INDEXWRAP(key) (hash_fnv_1a(key) % CAPACITY)
 
 typedef struct Node {
   char *key;
@@ -114,7 +114,7 @@ int map_del(HashMap *map, const char *key) {
 
       return 0;
     }
-    
+
     prev = curr;
     curr = curr->next;
   }
@@ -123,7 +123,7 @@ int map_del(HashMap *map, const char *key) {
 }
 
 void free_map(HashMap *map) {
-  for (int i = 0; i < CAPACITY; i++) {
+  for (size_t i = 0; i < CAPACITY; i++) {
     Node *head = map->buckets[i];
     while (head != NULL) {
       Node *temp = head;

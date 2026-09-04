@@ -1,6 +1,6 @@
 #include "format.h"
-#include "pkverr.h"
 #include "crc.h"
+#include "pkverr.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -99,7 +99,7 @@ static void picokv_write_rec_header(const Record *r, FILE *fp) {
   write_le(r->v_sz, sizeof r->v_sz, fp);
 }
 
-int picokv_write_record(uint8_t op, char *k, char *v, FILE *fp) {
+int picokv_write_record(uint8_t op, const char *k, const char *v, FILE *fp) {
   if (op != PICOKV_OP_SET && op != PICOKV_OP_DEL) {
     return PICOKV_ERR_BADOP;
   }
@@ -169,7 +169,6 @@ static int picokv_read_rec_header(Record *out, FILE *fp) {
 }
 
 int picokv_read_record(Record *out, FILE *fp) {
-
   int first = fgetc(fp);
 
   if (first == EOF) {
@@ -179,11 +178,14 @@ int picokv_read_record(Record *out, FILE *fp) {
     return PICOKV_ERR_IO;
   }
 
+  if (ungetc(first, fp) == EOF)
+    return PICOKV_ERR_IO;
+
   int rch = picokv_read_rec_header(out, fp);
   if (rch != 0)
     return rch;
 
-  out->k = malloc(out->k_sz + 1); // +1 for \0
+  out->k = malloc(out->k_sz + 1); // +1 for '\0'
   out->v = malloc(out->v_sz + 1);
 
   if (out->k == NULL || out->v == NULL) {
