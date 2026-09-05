@@ -139,15 +139,17 @@ int picokv_read_header(Header *out, FILE *fp) {
   safe_fread(out->magic, sizeof out->magic, 1, fp);
   out->version = read_le(sizeof out->version, fp);
   safe_fread(out->reserved, sizeof out->reserved, 1, fp);
-  for (size_t i = 0; i < sizeof out->reserved; i++) {
-    if (out->reserved[i] != 0) return PICOKV_ERR_RESERVED;
-  }
 
   if (memcmp(out->magic, PICOKV_MAGIC, 4) != 0) {
     return PICOKV_ERR_MAGIC;
   }
   if (out->version != PICOKV_FORMAT_VERSION) {
     return PICOKV_ERR_BADVER;
+  }
+
+  for (size_t i = 0; i < sizeof out->reserved; i++) {
+    if (out->reserved[i] != 0)
+      return PICOKV_ERR_RESERVED;
   }
 
   return 0;
