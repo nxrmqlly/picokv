@@ -78,6 +78,89 @@ int scan_line(char **dest) {
   return 0;
 }
 
+int next_token(char **out, const char **read) {
+  const char *p = *read;
+
+  while (isspace((unsigned char)*p))
+    p++;
+
+  if (*p == '\0') {
+    *out = NULL;
+    *read = p;
+    return 0; // no more tokens
+  }
+
+  // = is a special token!!
+  if (*p == '=') {
+    char *tok = malloc(2 * sizeof(char));
+    if (tok == NULL)
+      return PICOKV_ERR_NOMEM;
+
+    tok[0] = '=';
+    tok[1] = '\0';
+    *out = tok;
+    *read = p + 1;
+    return 0;
+  }
+
+  size_t cap = PICOKV_BUFSZ;
+  size_t len = 0;
+  char *buf = malloc(cap);
+
+  if (buf == NULL)
+    return PICOKV_ERR_NOMEM;
+
+  bool quoted = false;
+  bool escaped = false;
+
+  while (*p != '\0') {
+    char c = *p;
+
+    if (escaped) {
+      p++;
+      escaped = false;
+
+    } else if (c == '\\') {
+      p++;
+      escaped = true;
+      continue;
+
+    } else if (c == '"') {
+      p++;
+      quoted = !quoted;
+      continue;
+
+    } else if (!quoted && (isspace((unsigned char)c) || c == '=')) {
+      break;
+
+    } else {
+      p++;
+    }
+
+    if (len + 1 >= cap) {
+      cap += PICOKV_BUFSZ;
+      char *new_buf = realloc(buf, cap);
+
+      if (new_buf == NULL) {
+        free(buf);
+        return PICOKV_ERR_NOMEM;
+      }
+      buf = new_buf;
+    }
+    buf[len++] = c;
+  }
+
+  if (quoted || escaped) {
+    free(buf);
+    return PICOKV_ERR_SYNTAX;
+  }
+
+  buf[len] = '\0';
+  *out = buf;
+  *read = p;
+  return 0;
+}
+
 int lex_line(char ***out, char *line) {
   size_t cap = PICOKV_BUFSZ;
   size_t argc = 0;
@@ -86,85 +169,52 @@ int lex_line(char ***out, char *line) {
   if (argv == NULL)
     return PICOKV_ERR_NOMEM;
 
-  char *read = line;
-  char *write = line;
+  const char *read = line;
 
-  while (*read != '\0') {
-    while (isspace((unsigned char)*read))
-      read++;
+  while (true) {
+    char *tok;
+    int rc = next_token(&tok, &read);
+    if (rc != 0) {
+      for (size_t i = 0; i < argc; i++)
+        free(argv[i]);
+      free(argv);
 
-    if (*read == '\0')
+      return rc;
+    }
+
+    if (tok == NULL)
       break;
 
     if (argc + 1 >= cap) {
       cap += PICOKV_BUFSZ;
-
       char **new_argv = realloc(argv, cap * sizeof *argv);
+
       if (new_argv == NULL) {
+        free(tok);
+
+        for (size_t i = 0; i < argc; i++)
+          free(argv[i]);
         free(argv);
+
         return PICOKV_ERR_NOMEM;
       }
-
       argv = new_argv;
     }
-
-    // '=' is a diff indipendent token
-    if (*read == '=') {
-      argv[argc++] = write;
-      *write++ = *read++;
-      *write++ = '\0';
-      continue;
-    }
-
-    argv[argc++] = write;
-
-    bool quoted = false;
-    bool escaped = false;
-
-    while (*read != '\0') {
-      char c = *read++;
-
-      if (escaped) {
-        *write++ = c;
-        escaped = false;
-        continue;
-      }
-
-      if (c == '\\') {
-        escaped = true;
-        continue;
-      }
-
-      if (c == '"') {
-        quoted = !quoted;
-        continue;
-      }
-
-      if (!quoted && (isspace((unsigned char)c) || c == '=')) {
-        break;
-      }
-
-      *write++ = c;
-    }
-
-    *write++ = '\0';
-
-    if (quoted || escaped) {
-      free(argv);
-      return PICOKV_ERR_SYNTAX;
-    }
-
-    // if the delimiter we just consumed was '=',
-    // put it back so the next iteration lexes it
-    if (read > line && read[-1] == '=') {
-      read--;
-    }
+    argv[argc++] = tok;
   }
-
   argv[argc] = NULL;
   *out = argv;
 
   return 0;
+}
+
+void free_argv(char **argv) {
+  if (argv == NULL)
+    return;
+
+  for (size_t i = 0; argv[i] != NULL; i++)
+    free(argv[i]);
+  free(argv);
 }
 
 int repl(PicoKV *pkv) {
@@ -178,17 +228,17 @@ int repl(PicoKV *pkv) {
       return rc;
 
     rc = lex_line(&argv, line);
+    free(line); // no longer needed after parse
     if (rc != 0) {
-      free(line);
       return rc;
     }
 
     int argc = 0;
     while (argv[argc] != NULL)
       argc++;
+
     if (argc == 0) {
-      free(argv);
-      free(line);
+      free_argv(argv);
       continue;
     }
 
@@ -197,8 +247,7 @@ int repl(PicoKV *pkv) {
     rc = 0;
     switch (command) {
     case CMD_QUIT:
-      free(argv);
-      free(line);
+      free_argv(argv);
       return 0;
 
     case CMD_HELP: {
@@ -275,6 +324,8 @@ int repl(PicoKV *pkv) {
       break;
     }
 
+    free_argv(argv);
+    // free(line); // idk if we should be freeing line here again
     printf(PICOKV_PROMPT);
   }
   return 0;
