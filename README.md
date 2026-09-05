@@ -1,8 +1,58 @@
 # PicoKV
 
-A simple append-only key value store, written in C!
+A simple append-only key value store and file format, written in C!
 
-## Format Spec
+## Using the REPL
+
+The `picokv` REPL is very simple and ships with minimal commands.
+You can download a prebuilt binary from the
+[Releases Page](https://github.com/nxrmqlly/picokv/releases) or build it from scratch (recommended, see below)
+
+```sh
+picokv [filename]
+
+# for example,
+picokv mycooldata.picokv
+```
+
+`filename` defaults to `data.picokv` if not specified.
+
+Inside the REPL, you can use the following commands:
+(commands are case insensitive)
+
+| command               | use                                    |
+| --------------------- | -------------------------------------- |
+| `help`                | prints help                            |
+| `quit` or `exit`      | exits the the repl                     |
+| `get <key>`           | returns the value associated with key  |
+| `set <key> = <value>` | sets or updates key's value            |
+| `del <key>`           | removes a key and the associated value |
+
+## Building from scratch
+
+Clone the repo and use `make` to build.
+
+Prerequisites:
+
+- `clang`, or `gcc`
+- `git`
+
+```sh
+git clone https://github.com/nxrmqlly/picokv.git
+cd picokv
+make all # or "make CC=gcc all" if using gcc
+```
+
+## PicoKV as a library
+
+I'd recommend you not to use PicoKV as a library in production code, as its still
+pretty much a toy project, however if you still want to, header files are available:
+
+- `include/picokv.h`: the API level functions
+- `include/picokv_version.h`: source version of picokv
+- `include/pkverr.h`: error definitions
+
+## File Format
 
 PicoKV data is canonically stored in `.picokv` or `.pkv` files.
 All multi-byte integers are ONLY `little-endian`.
@@ -21,7 +71,7 @@ The contents are:
 The magic number represents the first 4 bytes of any PicoKV file.
 For picokv files is strictly `p1co` (ascii) as the bytes `0x70 0x31 0x63 0x6F`
 
-And, the version occupies 2 bytes, it currently is `1` (decimal) as the bytes `0x0001`
+And, the version occupies 2 bytes, it currently is `1` (decimal) as the bytes `0x01 0x00`
 
 Ten bytes are reserved for future use, and they MUST be zero.
 
@@ -100,6 +150,7 @@ A PicoKV file is invalid if:
 - file header is malformed;
 - its version is unsupported;
 - magic number doesn't match;
+- header's reserved space is not zero
 - a record contains an unknown operation;
 - a record is incomplete;
 - a record's CRC does not match its data;
@@ -122,3 +173,11 @@ operation determines the key's current state.
 |                                                           |                                                           |
 | --------------------------------------------------------- | :-------------------------------------------------------: |
 | ![gplv3](https://www.gnu.org/graphics/gplv3-or-later.png) | PicoKV is licensed under [GNU GPL v3 or later](./LICENSE) |
+
+---
+
+## AI Use
+
+No AI code was used. This was a learning project.
+
+[![Made by Human](https://madebyhuman.iamjarl.com/badges/made-white.svg)](https://madebyhuman.iamjarl.com)
