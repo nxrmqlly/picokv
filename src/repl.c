@@ -45,9 +45,10 @@ enum Command parse_command(const char *cmd) {
   return CMD_UNKNOWN;
 }
 
-int scan_line(char **dest) {
+int scan_line(char **dest, bool *eof) {
   size_t bufsz = PICOKV_BUFSZ;
   size_t pos = 0;
+  *eof = false;
 
   char *buffer = malloc(sizeof(char) * bufsz);
   if (buffer == NULL)
@@ -56,7 +57,12 @@ int scan_line(char **dest) {
   while (true) {
     int c = getchar();
 
-    if (c == EOF || c == '\n')
+    if (c == EOF) {
+      *eof = true;
+      break;
+    }
+
+    if (c == '\n')
       break;
 
     if (pos + 1 >= bufsz) {
@@ -218,19 +224,33 @@ void free_argv(char **argv) {
 }
 
 int repl(PicoKV *pkv) {
-  printf(PICOKV_PROMPT);
   while (true) {
+    printf(PICOKV_PROMPT);
+    fflush(stdout);
+
     char *line;
     char **argv;
+    bool eof = false;
 
-    int rc = scan_line(&line);
+    int rc = scan_line(&line, &eof);
     if (rc != 0)
       return rc;
 
+    if (eof && line[0] == '\0') {
+      free(line);
+      printf("\n");
+      return 0;
+    }
+
     rc = lex_line(&argv, line);
     free(line); // no longer needed after parse
+    if (rc == PICOKV_ERR_NOMEM) {
+      return rc; // fatal
+    }
+    
     if (rc != 0) {
-      return rc;
+      printf("Error: %s\n", picokv_strerror(rc));
+      continue; // bad input
     }
 
     int argc = 0;
@@ -325,8 +345,10 @@ int repl(PicoKV *pkv) {
     }
 
     free_argv(argv);
-    // free(line); // idk if we should be freeing line here again
-    printf(PICOKV_PROMPT);
+    if (eof) {
+      printf("\n");
+      return 0;
+    }
   }
   return 0;
 }
