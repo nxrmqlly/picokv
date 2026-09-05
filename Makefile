@@ -1,9 +1,9 @@
-CC = clang
+CC ?= clang
 CFLAGS = -Wall -Wextra -Wpedantic -Iinclude -Isrc -g
 SAN_FLAGS = -fsanitize=address,undefined -fno-omit-frame-pointer
 
 SRC = main.c src/crc.c src/format.c src/repl.c src/picokv.c src/inmemmap.c src/pkverr.c
-TARGET = dist/picokv
+TARGET ?= dist/picokv
 OBJ = $(SRC:.c=.o)
 
 .PHONY: all clean run san
