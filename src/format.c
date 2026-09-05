@@ -2,8 +2,8 @@
 // Copyright (C) 2026-present Ritam Das
 
 #include "format.h"
-#include "crc.h"
 #include "../include/pkverr.h"
+#include "crc.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +16,7 @@
  * All multi byte numbers are little endian
  *
  * Header (16B):
- * - magic   : 4B ("p1c0")
+ * - magic   : 4B ("p1co")
  * - version : 2B
  * - reserved: 10B
  *
@@ -109,9 +109,13 @@ int picokv_write_record(uint8_t op, const char *k, const char *v, FILE *fp) {
 
   uint32_t k_sz = strlen(k);
   uint32_t v_sz = op == PICOKV_OP_DEL ? 0 : strlen(v);
-  if (k_sz > MAX_K_SZ || v_sz > MAX_V_SZ) {
+  if (k_sz == 0 || k_sz > MAX_K_SZ) {
     return PICOKV_ERR_SIZE;
   }
+  if (op == PICOKV_OP_SET && (v_sz == 0 || v_sz > MAX_V_SZ)) {
+    return PICOKV_ERR_SIZE;
+  }
+
   uint32_t crc = crc32_start();
   crc = crc32_update(crc, (const uint8_t *)k, k_sz);
   crc = crc32_update(crc, (const uint8_t *)v, v_sz);
@@ -135,6 +139,9 @@ int picokv_read_header(Header *out, FILE *fp) {
   safe_fread(out->magic, sizeof out->magic, 1, fp);
   out->version = read_le(sizeof out->version, fp);
   safe_fread(out->reserved, sizeof out->reserved, 1, fp);
+  for (size_t i = 0; i < sizeof out->reserved; i++) {
+    if (out->reserved[i] != 0) return PICOKV_ERR_RESERVED;
+  }
 
   if (memcmp(out->magic, PICOKV_MAGIC, 4) != 0) {
     return PICOKV_ERR_MAGIC;
@@ -161,7 +168,10 @@ static int picokv_read_rec_header(Record *out, FILE *fp) {
   if (out->op != PICOKV_OP_SET && out->op != PICOKV_OP_DEL) {
     return PICOKV_ERR_BADOP;
   }
-  if (out->k_sz > MAX_K_SZ || out->v_sz > MAX_V_SZ) {
+  if (out->k_sz == 0 || out->k_sz > MAX_K_SZ) {
+    return PICOKV_ERR_SIZE;
+  }
+  if (out->op == PICOKV_OP_SET && (out->v_sz == 0 || out->v_sz > MAX_V_SZ)) {
     return PICOKV_ERR_SIZE;
   }
   if (out->op == PICOKV_OP_DEL && out->v_sz != 0) {
