@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 static const char PICOKV_MAGIC[4] = {'p', '1', 'c', 'o'};
-#define PICOKV_VERSION 0x0001
+#define PICOKV_FORMAT_VERSION 0x0001
 
 #define PICOKV_OP_SET 0x01
 #define PICOKV_OP_DEL 0x02

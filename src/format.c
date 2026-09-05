@@ -89,7 +89,7 @@ void picokv_write_header(FILE *fp) {
   // Write 16B of header
   uint8_t reserved[10] = {0}; // 10B
   safe_fwrite(PICOKV_MAGIC, 4, 1, fp);
-  write_le(PICOKV_VERSION, 2, fp);
+  write_le(PICOKV_FORMAT_VERSION, 2, fp);
   safe_fwrite(reserved, sizeof reserved, 1, fp);
 }
 
@@ -139,7 +139,7 @@ int picokv_read_header(Header *out, FILE *fp) {
   if (memcmp(out->magic, PICOKV_MAGIC, 4) != 0) {
     return PICOKV_ERR_MAGIC;
   }
-  if (out->version != PICOKV_VERSION) {
+  if (out->version != PICOKV_FORMAT_VERSION) {
     return PICOKV_ERR_BADVER;
   }
 
