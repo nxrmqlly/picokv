@@ -11,5 +11,6 @@
 #define PICOKV_ERR_EOF      (-8)
 #define PICOKV_ERR_NOTFOUND (-9)
 #define PICOKV_INVALID      (-10)
+#define PICOKV_ERR_SYNTAX   (-11)
 
 const char *picokv_strerror(int err);

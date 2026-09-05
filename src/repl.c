@@ -4,13 +4,15 @@
 #include "../include/picokv.h"
 #include "../include/pkverr.h"
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define PICOKV_PROMPT ("picokv> ")
 #define MAX_ARGS (3)
-#define ARG_DELIM (" \t")
+#define ARG_DELIM (" \t\r\n\a")
+#define PICOKV_BUFSZ (64)
 
 enum Command { CMD_UNKNOWN, CMD_HELP, CMD_QUIT, CMD_SET, CMD_DEL, CMD_GET };
 
@@ -44,30 +46,100 @@ enum Command parse_command(const char *cmd) {
   return CMD_UNKNOWN;
 }
 
-int repl(PicoKV *pkv) {
-  char input[256];
-  printf(PICOKV_PROMPT);
+int scan_line(char **dest) {
+  size_t bufsz = PICOKV_BUFSZ;
+  size_t pos = 0;
 
-  while (fgets(input, sizeof input, stdin)) {
-    input[strcspn(input, "\n")] = '\0';
+  char *buffer = malloc(sizeof(char) * bufsz);
+  if (buffer == NULL)
+    return PICOKV_ERR_NOMEM;
 
-    char *argv[MAX_ARGS];
-    int argc = 0;
+  while (true) {
+    int c = getchar();
 
-    char *token = strtok(input, ARG_DELIM);
+    if (c == EOF || c == '\n')
+      break;
 
-    while (token != NULL && argc < MAX_ARGS) {
-      argv[argc++] = token;
-      token = strtok(NULL, ARG_DELIM);
+    if (pos + 1 >= bufsz) {
+      bufsz += PICOKV_BUFSZ;
+
+      char *new_buffer = realloc(buffer, bufsz);
+      if (new_buffer == NULL) {
+        free(buffer);
+        return PICOKV_ERR_NOMEM;
+      }
+      buffer = new_buffer;
+    }
+    buffer[pos++] = (char)c;
+  }
+
+  buffer[pos] = '\0';
+  *dest = buffer;
+
+  return 0;
+}
+
+int split_line(char ***out, char *line) {
+  size_t bufsz = PICOKV_BUFSZ;
+  size_t pos = 0;
+
+  char **tokens = malloc(bufsz * sizeof(char *));
+  if (tokens == NULL) {
+    return PICOKV_ERR_NOMEM;
+  }
+
+  char *token = strtok(line, ARG_DELIM);
+
+  while (token != NULL) {
+    if (pos + 1 >= bufsz) {
+      bufsz += PICOKV_BUFSZ;
+
+      char **new_toks = realloc(tokens, bufsz * sizeof(char *));
+      if (new_toks == NULL) {
+        free(tokens);
+        return PICOKV_ERR_NOMEM;
+      }
+      tokens = new_toks;
     }
 
-    if (argc == 0)
+    tokens[pos++] = token;
+    token = strtok(NULL, ARG_DELIM);
+  }
+
+  tokens[pos] = NULL; // Null termincated arr
+  *out = tokens;
+
+  return 0;
+}
+
+int repl(PicoKV *pkv) {
+  printf(PICOKV_PROMPT);
+  while (true) {
+    char *line;
+    char **argv;
+
+    int rc = scan_line(&line);
+    if (rc != 0)
+      return rc;
+
+    rc = split_line(&argv, line);
+    if (rc != 0) {
+      free(line);
+      return rc;
+    }
+
+    int argc = 0;
+    while (argv[argc] != NULL)
+      argc++;
+    if (argc == 0) {
+      free(argv);
+      free(line);
       continue;
+    }
 
     enum Command command = parse_command(argv[0]);
 
-    int rc = 0;
-
+    rc = 0;
     switch (command) {
     case CMD_QUIT:
       return 0;

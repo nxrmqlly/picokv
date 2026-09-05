@@ -27,6 +27,8 @@ const char *picokv_strerror(int err) {
     return "key not found";
   case PICOKV_INVALID:
     return "invalid data";
+  case PICOKV_ERR_SYNTAX:
+    return "syntax error";
   default:
     return "unknown error";
   }
