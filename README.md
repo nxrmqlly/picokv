@@ -170,14 +170,10 @@ operation determines the key's current state.
 
 ## License
 
-|                                                           |                                                           |
-| --------------------------------------------------------- | :-------------------------------------------------------: |
-| ![gplv3](https://www.gnu.org/graphics/gplv3-or-later.png) | PicoKV is licensed under [GNU GPL v3 or later](./LICENSE) |
+PicoKV is licensed under [GNU GPL v3 or later](./LICENSE)
+
+![gplv3](https://www.gnu.org/graphics/gplv3-or-later.png)
 
 ---
-
-## AI Use
-
-No AI code was used. This was a learning project.
 
 [![Made by Human](https://madebyhuman.iamjarl.com/badges/made-white.svg)](https://madebyhuman.iamjarl.com)
