@@ -28,13 +28,14 @@ Inside the REPL, you can use the following commands:
 | `set <key> = <value>` | sets or updates key's value            |
 | `del <key>`           | removes a key and the associated value |
 
-## Building from scratch
+## Building from source
 
 Clone the repo and use `make` to build.
 
 Prerequisites:
 
 - `clang`, or `gcc`
+- `make`
 - `git`
 
 ```sh
@@ -55,7 +56,7 @@ pretty much a toy project, however if you still want to, header files are availa
 ## File Format
 
 PicoKV data is canonically stored in `.picokv` or `.pkv` files.
-All multi-byte integers are ONLY `little-endian`.
+All multi-byte integers are **little-endian** ONLY.
 
 The contents are:
 
